@@ -11,6 +11,7 @@
   "devDependencies": {
     "@types/jsonwebtoken": "^7.2.7",
     "babel-cli": "^6.26.0",
+    "babel-plugin-transform-object-rest-spread": "^6.26.0",
     "babel-preset-env": "^1.7.0",
     "nodemon": "^1.17.5"
   },
@@ -26,6 +27,7 @@
   "babel": {
     "presets": [
       "env"
-    ]
+    ],
+    "plugins": ["transform-object-rest-spread"]
   }
 }

@@ -4,6 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import docusign from 'docusign-esign';
 import _ from 'lodash';
+import moment from 'moment';
+import { promisify } from 'util';
 
 const app = express();
 app.use(bodyparser.json());
@@ -136,7 +138,6 @@ app.post('/', (req, res) => {
     return doc;
   });
 
-  console.log(recipients);
   const envelopeDefinition = createEnvelopeDefinition(documents, recipients);
 
   const accountId = req.accountId; //Gotten from the middleware
@@ -150,6 +151,34 @@ app.post('/', (req, res) => {
       } else {
         res.send(JSON.stringify(envelopeSummary));
       }
+  });
+});
+
+const getEnvelope = (accountId, envelopeId, opts = {}) => {
+  const api = new docusign.EnvelopesApi(apiClient);
+  return new Promise((res, rej) => {
+      api.getEnvelope(accountId, envelopeId, opts, (err, data) => {
+        if(err) {
+          return rej(err);
+        } 
+        res(data);
+      })
+  });
+}
+
+app.get('/envelopes/:envelopeId', (req, res) => {
+  getEnvelope(req.accountId, req.params.envelopeId).then(response => {
+    res.send(response);  
+  }).catch(error => {
+    res.status(error.status || 400).send(error.response); 
+  });
+});
+
+app.get('/envelopes/:envelopeId/status', (req, res) => {
+  getEnvelope(req.accountId, req.params.envelopeId).then(response => {
+    res.send({status: response.status});  
+  }).catch(error => {
+    res.status(error.status || 400).send(error.response); 
   });
 });
 
