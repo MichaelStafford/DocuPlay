@@ -38,30 +38,67 @@
 
   ```JSON
 
-      {
-        "id": 1,
-        "url": "samples/pdf-sample-1.pdf",
-        "signers": [
-          {
-            "id": 1,
-            "email":"{someemail@something.com}",
-            "name": "{Some Name}"
-          }
-        ],
-        "tabs": [
-          {
-            "pageNumber": 1,
-            "xPosition": 100,
-            "yPosition": 100
-          },
-          {
-            "pageNumber": 1,
-            "xPosition": 200,
-            "yPosition": 300
-          }
-        ]
+  {
+    "signers": {
+      "1" : {
+        "email":"{some email}",
+        "name": "Fred the Frumpy",
+        "phone": "123456789"
       }
-    ]
+    },
+    "documents": {
+      "1" : {
+        "url": "samples/pdf-sample-1.pdf",
+        "tabs": {
+          "signatures": [
+            {
+              "pageNumber": 1,
+              "xPosition": 100,
+              "yPosition": 100,
+              "signerIds": ["1"]
+            },
+            {
+              "pageNumber": 1,
+              "xPosition": 200,
+              "yPosition": 300,
+              "signerIds": ["1"]
+            },
+            {
+              "pageNumber": 1,
+              "xPosition": 450,
+              "yPosition": 400,
+              "signerIds": ["1"]
+            }	
+          ]
+        }
+      },
+      "2": {
+        "url": "samples/pdf-sample-2.pdf",
+        "tabs": {
+          "signatures": [
+            {
+              "pageNumber": 2,
+              "xPosition": 100,
+              "yPosition": 100,
+              "signerIds": ["1"]
+            },
+            {
+              "pageNumber": 1,
+              "xPosition": 200,
+              "yPosition": 300,
+              "signerIds": ["1"]
+            },
+            {
+              "pageNumber": 1,
+              "xPosition": 40,
+              "yPosition": 20,
+              "signerIds": ["1"]
+            }	
+          ]
+        }
+      }
+    }
+  }
 
   ```
 

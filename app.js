@@ -4,8 +4,6 @@ import fs from 'fs';
 import path from 'path';
 import docusign from 'docusign-esign';
 import _ from 'lodash';
-import moment from 'moment';
-import { promisify } from 'util';
 
 const app = express();
 app.use(bodyparser.json());
@@ -63,108 +61,116 @@ const docusignMiddleware = (req, res, next) => {
 }
 app.use(docusignMiddleware);
 
-const createDocument = (id, url) => {
-  const docToSign = fs.readFileSync(path.resolve(__dirname, url)); // TODO This will probably be a fetch from a service.
-  
-  const doc = new docusign.Document();
-  doc.name = 'Something.pdf'; // TODO what happens if we do not set a name
-  doc.extension = 'pdf';      // TODO what happens if we do not set an extension
-  doc.documentId = id;
-  doc.documentBase64 = new Buffer.from(docToSign).toString('base64');
+const createDocuments = (documentData) => {
+  return _.map(documentData, ({ url }, key) => {
+    return docusign.Document.constructFromObject({
+      documentId: key,
+      name: 'Some Document Name',
+      documentBase64: new Buffer.from(fs.readFileSync(path.resolve(__dirname, url))).toString('base64'),  
+    });
+  });
+};
 
-  return doc;
+const createSigners = (documentData, signerData) => {
+  return _.map(signerData, ({ email, name, phone}, recipientId) => {
+    const smsAuthentication = phone ? docusign.RecipientSMSAuthentication.constructFromObject({
+      senderProvidedNumbers: [phone],
+      recipMayProvideNumber: false,
+    }) : null; //  I do not think this is available at this time
+    
+    const tabs = createTabs(recipientId, documentData);
+
+    return docusign.Signer.constructFromObject({
+      recipientId,
+      email,
+      name,
+      smsAuthentication,
+      tabs,
+    });
+  });
 }
 
-const createSigner = (signerData, tabs) => {
-  const signer = new docusign.Signer();
-  signer.email = signerData.email;
-  signer.name = signerData.name;
-  signer.recipientId = signerData.id;
-  
-  const signatureTabs = new docusign.Tabs();
-  signatureTabs.tabs = tabs;
-  signer.tabs = signatureTabs;
-  
-  return signer;
+const createTabs = (recipientId, documentData) => {
+  const signHereTabs = _.map(documentData, ({ tabs }, documentId) => {
+    const signatures = _.filter(tabs.signatures, ({signerIds}) => _.includes(signerIds, recipientId));
+    return createSignatures(documentId, recipientId, signatures) 
+  }); 
+
+  return docusign.Tabs.constructFromObject({
+    signHereTabs: _.flatten(signHereTabs),
+  });
 }
 
-const createSignatureTab = (documentId, recipientId, tabData) => {
-  const tab = new docusign.SignHere();
-  tab.documentId = documentId;
-  tab.recipientId = recipientId;
-  
-  tab.pageNumber = tabData.pageNumber;
-  tab.xPosition = tabData.xPosition;
-  tab.yPosition = tabData.yPosition;
-
-  return tab;
+const createSignatures = (documentId, recipientId, signatures) => {
+  return _.map(signatures, ({ pageNumber, xPosition, yPosition }) => {
+    return docusign.SignHere.constructFromObject({
+      documentId,
+      pageNumber,
+      xPosition,
+      yPosition,
+      recipientId,
+    });
+  });
 }
 
-const createEnvelopeDefinition = (documents, recipients) => {
-  const definition = new docusign.EnvelopeDefinition();
-  definition.emailSubject = 'Please sign this document';
-  definition.documents = documents;
-  definition.recipients = recipients;
-  definition.status = 'sent'; // Otherwise it is treated as a draft
-
-  return definition;
+const createViewers = (viewers) => {
+  return _.map(viewers, ({ id, email, name}) => {
+    return docusign.CarbonCopy.constructFromObject({
+      recipientId: id,
+      email: email,
+      name: name,
+    });
+  }); 
 }
 
-app.post('/', (req, res) => {
-  const data = req.body;
-  const recipients = new docusign.Recipients();
-  recipients.signers = [];
-   
-  const documents = _.map(data, documentData => {
-    const doc = createDocument(documentData.id, documentData.url)
+const createEnvelope = (accountId, envelopeData) => {
+  const documentData = envelopeData.documents;
+  const signerData = envelopeData.signers;
+  const viewerData = envelopeData.viewers;
 
-    // TODO make actually work
-    const tabs = _.map(documentData.tabs, tab => { 
-      // TODO This likely needs to be integrated with the signers creation
-      return createSignatureTab(documentData.id, documentData.signers[0].id, tab);
+  return new Promise((resolve, reject) => {
+    const documents = createDocuments(documentData);   
+    const signers = createSigners(documentData, signerData);
+    const carbonCopies = createViewers(viewerData); // I do not think this is available at this time
+
+    const recipients = docusign.Recipients.constructFromObject({
+      signers, 
+      carbonCopies,
     });
 
-    const signers =  _.map(documentData.signers, signerData => {
-      const signer = createSigner(signerData, tabs); 
-      
-      // TODO remove side effects and basically all this code
-      if(!_.find(recipients.signers, (existing) => existing.email == signer.email)) {
-        recipients.signers.push(signer); 
+    const envelopeDefinition = docusign.EnvelopeDefinition.constructFromObject({
+      emailSubject: '[[Signer _UserName]] Please sign this!',
+      status: 'sent', 
+      brandId: '9fef7cc9-b11f-4e7e-8387-937a06107830', 
+      documents: documents,
+      recipients: recipients,
+    });  
+    
+    const envelopesApi = new docusign.EnvelopesApi(apiClient);
+    envelopesApi.createEnvelope(accountId, { envelopeDefinition: envelopeDefinition },
+      (err, summary, response) => { 
+      return err ? reject({ err, response }) : resolve({summary, response});
       }
-
-      return signer;
-    });
-
-    return doc;
+    );
   });
-
-  const envelopeDefinition = createEnvelopeDefinition(documents, recipients);
-
-  const accountId = req.accountId; //Gotten from the middleware
-  
-  const envelopesApi = new docusign.EnvelopesApi();
-  envelopesApi.createEnvelope(accountId, {'envelopeDefinition': envelopeDefinition},
-    (err, envelopeSummary, response) => {
-      console.log(response);
-      if (err) {
-        res.send({err, response});
-      } else {
-        res.send(JSON.stringify(envelopeSummary));
-      }
-  });
-});
+}
 
 const getEnvelope = (accountId, envelopeId, opts = {}) => {
-  const api = new docusign.EnvelopesApi(apiClient);
-  return new Promise((res, rej) => {
-      api.getEnvelope(accountId, envelopeId, opts, (err, data) => {
-        if(err) {
-          return rej(err);
-        } 
-        res(data);
-      })
+  return new Promise((resolve, reject) => {
+    const api = new docusign.EnvelopesApi(apiClient);
+    api.getEnvelope(accountId, envelopeId, opts, (err, data) => {
+        return err ? reject(err) : resolve(data);
+      });
   });
 }
+
+app.post('/envelopes', (req, res) => {
+  createEnvelope(req.accountId, req.body).then(({summary}) => {
+    res.send(summary);
+  }).catch(error => {
+    res.status(error.status || 400).send(error.response);
+  });
+});
 
 app.get('/envelopes/:envelopeId', (req, res) => {
   getEnvelope(req.accountId, req.params.envelopeId).then(response => {
@@ -175,8 +181,8 @@ app.get('/envelopes/:envelopeId', (req, res) => {
 });
 
 app.get('/envelopes/:envelopeId/status', (req, res) => {
-  getEnvelope(req.accountId, req.params.envelopeId).then(response => {
-    res.send({status: response.status});  
+  getEnvelope(req.accountId, req.params.envelopeId).then(({status}) => {
+    res.send({status});  
   }).catch(error => {
     res.status(error.status || 400).send(error.response); 
   });
