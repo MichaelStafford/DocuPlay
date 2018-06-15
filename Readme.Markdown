@@ -39,11 +39,19 @@
   ```JSON
 
   {
-    "signers": {
-      "1" : {
-        "email":"{some email}",
-        "name": "Fred the Frumpy",
-        "phone": "123456789"
+    "recipients": {
+      "signers": {
+        "1" : {
+          "email":"crasiproth@2emea.com",
+          "name": "Fred the Frumpy",
+          "phone": "0430079539"	
+        },
+      },
+      "viewers": {
+        "3": {
+          "email":"hotethomik@hvzoi.com",
+          "name": "Hot the not"
+        }
       }
     },
     "documents": {

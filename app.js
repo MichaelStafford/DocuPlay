@@ -114,19 +114,19 @@ const createSignatures = (documentId, recipientId, signatures) => {
 }
 
 const createViewers = (viewers) => {
-  return _.map(viewers, ({ id, email, name}) => {
+  return _.map(viewers, ({ email, name }, recipientId) => {
     return docusign.CarbonCopy.constructFromObject({
-      recipientId: id,
-      email: email,
-      name: name,
+      recipientId,
+      email,
+      name,
     });
   }); 
 }
 
 const createEnvelope = (accountId, envelopeData) => {
   const documentData = envelopeData.documents;
-  const signerData = envelopeData.signers;
-  const viewerData = envelopeData.viewers;
+  const signerData = envelopeData.recipients.signers;
+  const viewerData = envelopeData.recipients.viewers;
 
   return new Promise((resolve, reject) => {
     const documents = createDocuments(documentData);   
