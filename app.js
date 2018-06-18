@@ -5,6 +5,8 @@ import path from 'path';
 import docusign from 'docusign-esign';
 import _ from 'lodash';
 
+import docusignAdapter from './lib/docusign-adapter';
+
 const app = express();
 app.use(bodyparser.json());
 app.use(express.static(path.join(__dirname, 'public')))
@@ -17,48 +19,24 @@ const config = {
   redirectUri: 'https://www.docusign.com',          // Ignore for now, we do not care if we are automated
   integratorKey: process.env.clientID,              // We setup an integrator on the admin console
   impersonatedUser: process.env.impersonatedUserID, // This could be any user theoretically
-  integratorRSAKey: 'config/integratorRSAKey.key',
+  integratorRSAKey: path.resolve(__dirname, 'config/integratorRSAKey.key'),
+  timeout: 3600,
 };
 
-const apiClient = new docusign.ApiClient();
-apiClient.setBasePath(config.baseUrl);
-docusign.Configuration.default.setDefaultApiClient(apiClient); //Important
+const adapter = new docusignAdapter(config);
+const apiClient = adapter._apiClient;
+
 
 const docusignMiddleware = (req, res, next) => {
-  
-  console.log('Permission URL: ', apiClient.getJWTUri(
-    config.integratorKey, 
-    config.redirectUri, 
-    config.oAuthBaseUrl
-  ));
-  
-  apiClient.configureJWTAuthorizationFlow(
-    path.resolve(__dirname, config.integratorRSAKey), 
-    config.oAuthBaseUrl, 
-    config.integratorKey, 
-    config.impersonatedUser, 
-    3600, 
-    (err, response) => {
-      if(err) {
-        res.send(err);
-      }
-    
-      apiClient.getUserInfo(response.body.access_token, (err, userInfo) => {
-        if(err) {
-          res.send(err);
-        }
-        
-        req.accountId = userInfo.accounts[0].accountId;
-        
-        if(isProd) {
-          const baseUri = userInfo.accounts[0].baseUri;
-          const accountDomain = baseUri.split('/v2');
-          apiClient.setBasePath(accountDomain[0] + "/restapi");
-        }
-        next();
-      });
+  console.log('Permission URL: ', adapter.authURI());
+  return adapter.authenticate().then(response => {
+    req.accountId = response.accounts[0].accountId;
+    next();
+  }).catch(error => {
+    next(error.response, null);
   });
 }
+
 app.use(docusignMiddleware);
 
 const createDocuments = (documentData) => {
