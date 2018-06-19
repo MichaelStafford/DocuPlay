@@ -2,3 +2,4 @@
 *.pub
 .env
 /node_modules/
+.webpack

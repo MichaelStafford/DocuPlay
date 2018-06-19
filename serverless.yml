@@ -1,0 +1,35 @@
+service:
+  name: docu-play
+
+plugins:
+  - serverless-webpack
+  - serverless-dynamodb-local
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  stage: ${opt:stage, 'dev'}
+  region: ${self:custom.config.region, 'localhost'}
+  endpoint: ${self:custom.config.endpoint, 'http://localhost:8000'}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: arn:aws:dynamodb:*:*:*
+
+custom:
+  dynamodb:
+    start:
+      port: 8000
+      memory: true
+      migrate: true
+      seed: true
+
+functions: ${file(config/functions.yml):functions}
+# resources: ${file(config/resources.yml):resources}

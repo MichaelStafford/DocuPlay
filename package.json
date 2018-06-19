@@ -4,33 +4,36 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "babel-node": "babel-node --presets=env",
-    "dev": "nodemon --exec npm run babel-node -- ./app.js",
-    "build": "babel src -d dist",
+    "setup": "yarn && sls dynamodb install",
+    "dev": "sls offline start --stage dev",
+    "deploy": "sls deploy --stage production",
     "test": "jest"
   },
   "devDependencies": {
-    "@types/jsonwebtoken": "^7.2.7",
     "babel-cli": "^6.26.0",
+    "babel-core": "^6.26.3",
     "babel-jest": "^23.0.1",
+    "babel-loader": "^7.1.4",
     "babel-plugin-transform-object-rest-spread": "^6.26.0",
     "babel-preset-env": "^1.7.0",
     "jest": "^23.1.0",
-    "nodemon": "^1.17.5",
-    "regenerator-runtime": "^0.11.1"
+    "serverless-dynamodb-local": "^0.2.30",
+    "serverless-offline": "^3.24.3",
+    "serverless-webpack": "^5.1.5",
+    "webpack": "^4.10.0",
+    "webpack-node-externals": "^1.7.2"
   },
   "dependencies": {
-    "axios": "^0.18.0",
-    "body-parser": "^1.18.3",
-    "docusign-esign": "^4.0.0",
-    "express": "^4.16.3",
-    "jsonwebtoken": "^8.3.0",
-    "lodash": "^4.17.10",
-    "moment": "^2.22.2"
+    "docusign-esign": "^4.0.0"
   },
   "babel": {
     "presets": [
-      "env"
+      [
+        "env",
+        {
+          "node": "8.10"
+        }
+      ]
     ],
     "plugins": [
       "transform-object-rest-spread"

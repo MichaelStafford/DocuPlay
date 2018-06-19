@@ -1,0 +1,7 @@
+functions: 
+  getStatus:
+    handler: lib/getStatus.perform
+    events:
+      - http:
+          path: /status
+          method: get

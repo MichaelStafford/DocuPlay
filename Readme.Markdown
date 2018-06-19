@@ -23,6 +23,7 @@
   ```Bash
 
     yarn
+    sls dynamodb install
 
   ```
 
